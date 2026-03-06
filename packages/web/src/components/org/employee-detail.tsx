@@ -1,17 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-
-interface EmployeeData {
-  name: string;
-  displayName?: string;
-  department?: string;
-  rank?: string;
-  engine?: string;
-  model?: string;
-  persona?: string;
-  [key: string]: unknown;
-}
+import type { Employee } from "@/lib/api";
 
 interface SessionData {
   id: string;
@@ -22,15 +12,54 @@ interface SessionData {
   [key: string]: unknown;
 }
 
-const rankColors: Record<string, string> = {
-  executive: "bg-purple-100 text-purple-700 border-purple-200",
-  manager: "bg-blue-100 text-blue-700 border-blue-200",
-  senior: "bg-green-100 text-green-700 border-green-200",
-  employee: "bg-neutral-100 text-neutral-500 border-neutral-200",
+const RANK_EMOJI: Record<string, string> = {
+  executive: "\uD83C\uDFAF",
+  manager: "\uD83D\uDCCB",
+  senior: "\u2B50",
+  employee: "\uD83D\uDC64",
 };
 
+function RankBadge({ rank }: { rank: string }) {
+  const colors: Record<string, { bg: string; text: string }> = {
+    executive: {
+      bg: "color-mix(in srgb, var(--system-purple) 15%, transparent)",
+      text: "var(--system-purple)",
+    },
+    manager: {
+      bg: "color-mix(in srgb, var(--system-blue) 15%, transparent)",
+      text: "var(--system-blue)",
+    },
+    senior: {
+      bg: "color-mix(in srgb, var(--system-green) 15%, transparent)",
+      text: "var(--system-green)",
+    },
+    employee: {
+      bg: "var(--fill-tertiary)",
+      text: "var(--text-tertiary)",
+    },
+  };
+  const c = colors[rank] || colors.employee;
+
+  return (
+    <span
+      style={{
+        fontSize: "var(--text-caption2)",
+        fontWeight: "var(--weight-semibold)",
+        color: c.text,
+        background: c.bg,
+        padding: "2px 10px",
+        borderRadius: 10,
+        textTransform: "uppercase",
+        letterSpacing: "0.02em",
+      }}
+    >
+      {rank}
+    </span>
+  );
+}
+
 export function EmployeeDetail({ name }: { name: string }) {
-  const [employee, setEmployee] = useState<EmployeeData | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +70,9 @@ export function EmployeeDetail({ name }: { name: string }) {
     setError(null);
     setPersonaExpanded(false);
 
-    Promise.all([
-      api.getEmployee(name),
-      api.getSessions(),
-    ])
+    Promise.all([api.getEmployee(name), api.getSessions()])
       .then(([emp, allSessions]) => {
-        setEmployee(emp as EmployeeData);
+        setEmployee(emp);
         const empSessions = (allSessions as SessionData[]).filter(
           (s) => s.employee === name,
         );
@@ -58,7 +84,16 @@ export function EmployeeDetail({ name }: { name: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-neutral-400 text-sm">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: 256,
+          color: "var(--text-tertiary)",
+          fontSize: "var(--text-caption1)",
+        }}
+      >
         Loading...
       </div>
     );
@@ -66,7 +101,16 @@ export function EmployeeDetail({ name }: { name: string }) {
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+      <div
+        style={{
+          borderRadius: "var(--radius-md, 12px)",
+          background: "color-mix(in srgb, var(--system-red) 10%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--system-red) 30%, transparent)",
+          padding: "var(--space-3) var(--space-4)",
+          fontSize: "var(--text-caption1)",
+          color: "var(--system-red)",
+        }}
+      >
         Failed to load employee: {error}
       </div>
     );
@@ -75,43 +119,113 @@ export function EmployeeDetail({ name }: { name: string }) {
   if (!employee) return null;
 
   const rank = employee.rank || "employee";
-  const colors = rankColors[rank] || rankColors.employee;
+  const emoji = RANK_EMOJI[rank] || RANK_EMOJI.employee;
   const persona = employee.persona || "";
-  const truncatedPersona = persona.length > 200 && !personaExpanded
-    ? persona.slice(0, 200) + "..."
-    : persona;
+  const truncatedPersona =
+    persona.length > 200 && !personaExpanded
+      ? persona.slice(0, 200) + "..."
+      : persona;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-neutral-200 bg-white p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">
-              {employee.displayName || employee.name}
-            </h2>
-            <p className="text-sm text-neutral-500 mt-0.5">{employee.name}</p>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+      {/* Main info card */}
+      <div
+        style={{
+          borderRadius: "var(--radius-lg, 16px)",
+          border: "1px solid var(--separator)",
+          background: "var(--material-regular)",
+          padding: "var(--space-6)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: "var(--space-4)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <span style={{ fontSize: 28, lineHeight: 1 }}>{emoji}</span>
+            <div>
+              <h2
+                style={{
+                  fontSize: "var(--text-title2)",
+                  fontWeight: "var(--weight-bold)",
+                  letterSpacing: "var(--tracking-tight)",
+                  color: "var(--text-primary)",
+                  margin: 0,
+                }}
+              >
+                {employee.displayName || employee.name}
+              </h2>
+              <p
+                style={{
+                  fontSize: "var(--text-caption1)",
+                  color: "var(--text-tertiary)",
+                  margin: "2px 0 0",
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                {employee.name}
+              </p>
+            </div>
           </div>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${colors}`}>
-            {rank}
-          </span>
+          <RankBadge rank={rank} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "var(--space-4)",
+          }}
+        >
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-1">
+            <p
+              style={{
+                fontSize: "var(--text-caption2)",
+                fontWeight: "var(--weight-semibold)",
+                textTransform: "uppercase",
+                letterSpacing: "var(--tracking-wide)",
+                color: "var(--text-tertiary)",
+                marginBottom: "var(--space-1)",
+              }}
+            >
               Department
             </p>
-            <p className="text-sm text-neutral-700">
+            <p
+              style={{
+                fontSize: "var(--text-body)",
+                color: "var(--text-primary)",
+                margin: 0,
+              }}
+            >
               {employee.department || "None"}
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-1">
+            <p
+              style={{
+                fontSize: "var(--text-caption2)",
+                fontWeight: "var(--weight-semibold)",
+                textTransform: "uppercase",
+                letterSpacing: "var(--tracking-wide)",
+                color: "var(--text-tertiary)",
+                marginBottom: "var(--space-1)",
+              }}
+            >
               Engine
             </p>
-            <p className="text-sm text-neutral-700">
+            <p
+              style={{
+                fontSize: "var(--text-body)",
+                color: "var(--text-primary)",
+                margin: 0,
+              }}
+            >
               {employee.engine || "claude"}{" "}
-              <span className="text-neutral-400">
+              <span style={{ color: "var(--text-tertiary)" }}>
                 / {employee.model || "default"}
               </span>
             </p>
@@ -119,17 +233,48 @@ export function EmployeeDetail({ name }: { name: string }) {
         </div>
 
         {persona && (
-          <div className="mt-4 pt-4 border-t border-neutral-100">
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-2">
+          <div
+            style={{
+              marginTop: "var(--space-4)",
+              paddingTop: "var(--space-4)",
+              borderTop: "1px solid var(--separator)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "var(--text-caption2)",
+                fontWeight: "var(--weight-semibold)",
+                textTransform: "uppercase",
+                letterSpacing: "var(--tracking-wide)",
+                color: "var(--text-tertiary)",
+                marginBottom: "var(--space-2)",
+              }}
+            >
               Persona
             </p>
-            <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
+            <p
+              style={{
+                fontSize: "var(--text-body)",
+                color: "var(--text-secondary)",
+                lineHeight: "var(--leading-relaxed)",
+                whiteSpace: "pre-wrap",
+                margin: 0,
+              }}
+            >
               {truncatedPersona}
             </p>
             {persona.length > 200 && (
               <button
                 onClick={() => setPersonaExpanded(!personaExpanded)}
-                className="text-xs text-blue-500 hover:text-blue-600 mt-1"
+                style={{
+                  fontSize: "var(--text-caption1)",
+                  color: "var(--accent)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  marginTop: "var(--space-1)",
+                }}
               >
                 {personaExpanded ? "Show less" : "Show more"}
               </button>
@@ -138,23 +283,69 @@ export function EmployeeDetail({ name }: { name: string }) {
         )}
       </div>
 
+      {/* Recent Sessions */}
       <div>
-        <h3 className="text-sm font-medium text-neutral-700 mb-3">
+        <h3
+          style={{
+            fontSize: "var(--text-caption1)",
+            fontWeight: "var(--weight-semibold)",
+            letterSpacing: "var(--tracking-wide)",
+            textTransform: "uppercase",
+            color: "var(--text-tertiary)",
+            marginBottom: "var(--space-3)",
+          }}
+        >
           Recent Sessions
         </h3>
         {sessions.length === 0 ? (
-          <p className="text-sm text-neutral-400 text-center py-6">
+          <p
+            style={{
+              fontSize: "var(--text-caption1)",
+              color: "var(--text-tertiary)",
+              textAlign: "center",
+              padding: "var(--space-6) 0",
+            }}
+          >
             No sessions found for this employee.
           </p>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100">
-            {sessions.map((session) => (
-              <div key={session.id} className="px-5 py-3 flex items-center justify-between">
+          <div
+            style={{
+              borderRadius: "var(--radius-lg, 16px)",
+              border: "1px solid var(--separator)",
+              background: "var(--material-regular)",
+              overflow: "hidden",
+            }}
+          >
+            {sessions.map((session, idx) => (
+              <div
+                key={session.id}
+                style={{
+                  padding: "var(--space-3) var(--space-5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderTop: idx > 0 ? "1px solid var(--separator)" : undefined,
+                }}
+              >
                 <div>
-                  <p className="text-sm font-mono text-neutral-700">
+                  <p
+                    style={{
+                      fontSize: "var(--text-body)",
+                      fontFamily: "var(--font-mono)",
+                      color: "var(--text-primary)",
+                      margin: 0,
+                    }}
+                  >
                     {session.id.slice(0, 8)}
                   </p>
-                  <p className="text-xs text-neutral-400 mt-0.5">
+                  <p
+                    style={{
+                      fontSize: "var(--text-caption2)",
+                      color: "var(--text-tertiary)",
+                      marginTop: 2,
+                    }}
+                  >
                     {session.source || "unknown"}{" "}
                     {session.createdAt
                       ? new Date(session.createdAt).toLocaleDateString()
@@ -162,13 +353,28 @@ export function EmployeeDetail({ name }: { name: string }) {
                   </p>
                 </div>
                 <span
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    session.status === "running"
-                      ? "bg-green-50 text-green-700"
+                  style={{
+                    fontSize: "var(--text-caption2)",
+                    fontWeight: "var(--weight-semibold)",
+                    padding: "2px 8px",
+                    borderRadius: 10,
+                    ...(session.status === "running"
+                      ? {
+                          background:
+                            "color-mix(in srgb, var(--system-green) 15%, transparent)",
+                          color: "var(--system-green)",
+                        }
                       : session.status === "error"
-                        ? "bg-red-50 text-red-700"
-                        : "bg-neutral-100 text-neutral-500"
-                  }`}
+                        ? {
+                            background:
+                              "color-mix(in srgb, var(--system-red) 15%, transparent)",
+                            color: "var(--system-red)",
+                          }
+                        : {
+                            background: "var(--fill-tertiary)",
+                            color: "var(--text-tertiary)",
+                          }),
+                  }}
                 >
                   {session.status || "idle"}
                 </span>

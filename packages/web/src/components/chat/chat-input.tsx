@@ -32,9 +32,10 @@ export function ChatInput({
     api
       .getOrg()
       .then((data) => {
-        const emps = (data as Record<string, unknown>).employees;
+        const emps = data.employees;
         if (Array.isArray(emps)) {
-          setEmployees(emps as Employee[]);
+          // employees is string[] from OrgData; convert to Employee objects
+          setEmployees(emps.map((e: string) => ({ name: e })) as Employee[]);
         }
       })
       .catch(() => {});

@@ -83,34 +83,79 @@ function ChatPage() {
     });
   }
 
-  // Listen for session:completed events to update
+  // Track whether we're currently streaming (to build up the assistant message)
+  const streamingRef = useRef(false);
+
+  // Listen for session:delta and session:completed events
   useEffect(() => {
     if (events.length === 0) return;
     const latest = events[events.length - 1];
+    const payload = latest.payload as Record<string, unknown>;
+
+    const matchesSession = selectedId && payload.sessionId === selectedId;
+    const isOnboarding = !selectedId && onboardingTriggered.current;
+    if (!matchesSession && !isOnboarding) return;
+
+    if (latest.event === "session:delta") {
+      const delta = String(payload.delta || "");
+      if (!delta) return;
+
+      if (!streamingRef.current) {
+        // First delta — add a new assistant message
+        streamingRef.current = true;
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant" as const, content: delta },
+        ]);
+      } else {
+        // Append to the last assistant message
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === "assistant") {
+            updated[updated.length - 1] = {
+              ...last,
+              content: last.content + delta,
+            };
+          }
+          return updated;
+        });
+      }
+    }
+
     if (latest.event === "session:completed") {
-      const payload = latest.payload as Record<string, unknown>;
-      // Match by selectedId or pick up the session if we're waiting for onboarding
-      const matchesSession = selectedId && payload.sessionId === selectedId;
-      const isOnboarding = !selectedId && onboardingTriggered.current;
-      if (matchesSession || isOnboarding) {
-        if (isOnboarding && payload.sessionId) {
-          setSelectedId(String(payload.sessionId));
-        }
-        setLoading(false);
-        if (payload.result) {
-          setMessages((prev) => [
+      if (isOnboarding && payload.sessionId) {
+        setSelectedId(String(payload.sessionId));
+      }
+      streamingRef.current = false;
+      setLoading(false);
+
+      // If we never got any deltas, show the final result
+      if (payload.result) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && last.content) {
+            // Already have streamed content — replace with final result
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              ...last,
+              content: String(payload.result),
+            };
+            return updated;
+          }
+          return [
             ...prev,
             { role: "assistant" as const, content: String(payload.result) },
-          ]);
-        }
-        if (payload.error && !payload.result) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant" as const, content: `Error: ${payload.error}` },
-          ]);
-        }
-        setRefreshKey((k) => k + 1);
+          ];
+        });
       }
+      if (payload.error && !payload.result) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant" as const, content: `Error: ${payload.error}` },
+        ]);
+      }
+      setRefreshKey((k) => k + 1);
     }
   }, [events, selectedId]);
 
@@ -162,6 +207,7 @@ function ChatPage() {
         setMessages((prev) => [...prev, userMsg]);
       }
       setLoading(true);
+      streamingRef.current = false;
 
       try {
         let sessionId = selectedId;

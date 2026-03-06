@@ -1,3 +1,18 @@
+export interface Employee {
+  name: string;
+  displayName: string;
+  department: string;
+  rank: "executive" | "manager" | "senior" | "employee";
+  engine: string;
+  model: string;
+  persona: string;
+}
+
+export interface OrgData {
+  departments: string[];
+  employees: string[];
+}
+
 const BASE =
   typeof window !== "undefined"
     ? window.location.origin
@@ -41,8 +56,8 @@ export const api = {
   getCronRuns: (id: string) => get<Record<string, unknown>[]>(`/api/cron/${id}/runs`),
   updateCronJob: (id: string, data: Record<string, unknown>) =>
     put<Record<string, unknown>>(`/api/cron/${id}`, data),
-  getOrg: () => get<Record<string, unknown>>("/api/org"),
-  getEmployee: (name: string) => get<Record<string, unknown>>(`/api/org/employees/${name}`),
+  getOrg: () => get<OrgData>("/api/org"),
+  getEmployee: (name: string) => get<Employee>(`/api/org/employees/${name}`),
   getDepartmentBoard: (name: string) =>
     get<Record<string, unknown>>(`/api/org/departments/${name}/board`),
   getSkills: () => get<Record<string, unknown>[]>("/api/skills"),
