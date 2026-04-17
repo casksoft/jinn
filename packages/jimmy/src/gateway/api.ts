@@ -43,6 +43,7 @@ import { getSttStatus, downloadModel, transcribe as sttTranscribe, resolveLangua
 import { JINN_HOME } from "../shared/paths.js";
 import { resolveEffort } from "../shared/effort.js";
 import { computeNextRetryDelayMs, computeRateLimitDeadlineMs, detectRateLimit } from "../shared/rateLimit.js";
+import { resolveMcpServers, writeMcpConfigFile, cleanupMcpConfigFile } from "../mcp/resolver.js";
 import { getClaudeExpectedResetAt, recordClaudeRateLimit } from "../shared/usageAwareness.js";
 import { loadJobs, saveJobs } from "../cron/jobs.js";
 import { reloadScheduler } from "../cron/scheduler.js";
@@ -2052,6 +2053,7 @@ async function runWebSession(
   const { resolveOrgHierarchy } = await import("./org-hierarchy.js");
   const orgHierarchy = resolveOrgHierarchy(scanOrgForHierarchy());
 
+  let mcpConfigPath: string | undefined;
   try {
 
     const systemPrompt = buildContext({
@@ -2071,6 +2073,17 @@ async function runWebSession(
         ? config.engines.gemini ?? config.engines.claude
         : config.engines.claude;
     const effortLevel = resolveEffort(engineConfig, currentSession, employee);
+
+    if (currentSession.engine === "claude") {
+      try {
+        const mcpConfig = resolveMcpServers(config.mcp, employee);
+        if (Object.keys(mcpConfig.mcpServers).length > 0) {
+          mcpConfigPath = writeMcpConfigFile(mcpConfig, currentSession.id);
+        }
+      } catch (err) {
+        logger.warn(`Failed to resolve MCP config for web session ${currentSession.id}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
 
     let lastHeartbeatAt = 0;
     const runHeartbeat = setInterval(() => {
@@ -2102,6 +2115,7 @@ async function runWebSession(
       model: currentSession.model ?? engineConfig.model,
       effortLevel,
       cliFlags: employee?.cliFlags,
+      mcpConfigPath,
       attachments: attachments?.length ? attachments : undefined,
       sessionId: currentSession.id,
       onStream: (delta) => {
@@ -2479,5 +2493,7 @@ async function runWebSession(
       error: errMsg,
     });
     logger.error(`Web session ${currentSession.id} error: ${errMsg}`);
+  } finally {
+    if (mcpConfigPath) cleanupMcpConfigFile(currentSession.id);
   }
 }
