@@ -44,6 +44,11 @@ import { JINN_HOME } from "../shared/paths.js";
 import { resolveEffort } from "../shared/effort.js";
 import { computeNextRetryDelayMs, computeRateLimitDeadlineMs, detectRateLimit } from "../shared/rateLimit.js";
 import { resolveMcpServers, writeMcpConfigFile, cleanupMcpConfigFile } from "../mcp/resolver.js";
+import {
+  listProjects as claudeCodeListProjects,
+  listSessions as claudeCodeListSessions,
+  getSession as claudeCodeGetSession,
+} from "../sessions/claude-code-adapter.js";
 import { getClaudeExpectedResetAt, recordClaudeRateLimit } from "../shared/usageAwareness.js";
 import { loadJobs, saveJobs } from "../cron/jobs.js";
 import { reloadScheduler } from "../cron/scheduler.js";
@@ -1162,6 +1167,43 @@ Handle this as a priority request from a colleague.`;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return serverError(res, msg);
+      }
+    }
+
+    // GET /api/external/projects — list Claude Code CLI projects (read-only)
+    if (method === "GET" && pathname === "/api/external/projects") {
+      try {
+        const projects = await claudeCodeListProjects();
+        return json(res, projects);
+      } catch (err) {
+        return serverError(res, `Failed to list external projects: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    // GET /api/external/projects/:slug/sessions
+    {
+      const m = pathname.match(/^\/api\/external\/projects\/([^/]+)\/sessions$/);
+      if (method === "GET" && m) {
+        try {
+          const sessions = await claudeCodeListSessions(decodeURIComponent(m[1]));
+          return json(res, sessions);
+        } catch (err) {
+          return serverError(res, `Failed to list external sessions: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    }
+
+    // GET /api/external/projects/:slug/sessions/:id
+    {
+      const m = pathname.match(/^\/api\/external\/projects\/([^/]+)\/sessions\/([^/]+)$/);
+      if (method === "GET" && m) {
+        try {
+          const session = await claudeCodeGetSession(decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+          if (!session) return notFound(res);
+          return json(res, session);
+        } catch (err) {
+          return serverError(res, `Failed to read external session: ${err instanceof Error ? err.message : err}`);
+        }
       }
     }
 
