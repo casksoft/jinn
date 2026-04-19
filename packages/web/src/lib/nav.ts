@@ -7,6 +7,7 @@ import {
   Activity,
   Zap,
   Settings,
+  Archive,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -24,5 +25,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/cron", label: "Cron", icon: Clock },
   { href: "/logs", label: "Activity", icon: Activity },
   { href: "/skills", label: "Skills", icon: Zap },
+  { href: "/external", label: "Claude CLI", icon: Archive },
   { href: "/settings", label: "Settings", icon: Settings },
 ]

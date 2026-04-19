@@ -10,6 +10,36 @@ export interface TranscriptEntry {
   content: TranscriptContentBlock[]
 }
 
+export interface ExternalProject {
+  slug: string
+  cwd: string
+  sessionCount: number
+  lastActivity: string | null
+}
+
+export interface ExternalSessionSummary {
+  id: string
+  projectSlug: string
+  title: string
+  firstMessageAt: string | null
+  lastMessageAt: string | null
+  messageCount: number
+  sizeBytes: number
+}
+
+export interface ExternalMessage {
+  uuid: string
+  parentUuid: string | null
+  type: 'user' | 'assistant' | 'attachment'
+  timestamp: string
+  content: string
+  isSidechain?: boolean
+}
+
+export interface ExternalSession extends ExternalSessionSummary {
+  messages: ExternalMessage[]
+}
+
 export interface QueueItem {
   id: string;
   sessionId: string;
@@ -154,6 +184,11 @@ export const api = {
     patch<{ status: string }>(`/api/org/employees/${name}`, data),
   getDepartmentBoard: (name: string) =>
     get<Record<string, unknown>>(`/api/org/departments/${name}/board`),
+  getExternalProjects: () => get<ExternalProject[]>("/api/external/projects"),
+  getExternalSessions: (slug: string) =>
+    get<ExternalSessionSummary[]>(`/api/external/projects/${encodeURIComponent(slug)}/sessions`),
+  getExternalSession: (slug: string, id: string) =>
+    get<ExternalSession>(`/api/external/projects/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(id)}`),
   getSkills: () => get<Record<string, unknown>[]>("/api/skills"),
   getSkill: (name: string) => get<Record<string, unknown>>(`/api/skills/${name}`),
   getConfig: () => get<Record<string, unknown>>("/api/config"),
